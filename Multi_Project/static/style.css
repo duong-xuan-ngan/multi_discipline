@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Roboto', sans-serif;
+}
+
+body {
+    background-color: #f5f5f5;
+}
+
+nav {
+    position: fixed;
+    background: #2c3e50;
+    width: 100%;
+    padding: 15px 0;
+    z-index: 12;
+}
+
+    nav .menu {
+        max-width: 1200px;
+        margin: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+    }
+
+.menu .logo a {
+    text-decoration: none;
+    color: #fff;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.menu ul {
+    display: flex;
+}
+
+    .menu ul li {
+        list-style: none;
+        margin-left: 20px;
+    }
+
+        .menu ul li a {
+            text-decoration: none;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+            .menu ul li a:hover {
+                background: #34495e;
+            }
+
+.content {
+    padding-top: 80px;
+}
+
+.center {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+    .center .title {
+        color: #2c3e50;
+        font-size: 48px;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .center .sub_title {
+        color: #34495e;
+        font-size: 24px;
+        font-weight: 400;
+        margin-bottom: 40px;
+    }
+
+    .center .btns {
+        margin-top: 30px;
+    }
+
+        .center .btns button {
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: 500;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+            .center .btns button:hover {
+                background-color: #2980b9;
+            }

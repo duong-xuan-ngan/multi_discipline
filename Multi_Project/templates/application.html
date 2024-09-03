@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+        }
+
+        #map {
+            height: 100vh; /* Full height */
+            width: 100vw; /* Full width */
+        }
+
+        .purple-marker-icon .bx {
+            font-size: 50px; /* Adjust the size as needed */
+            color: purple; /* Adjust the color as needed */
+            display: block; /* Ensures the icon takes up space */
+            margin: -35px -50px; /* Adjust margins to center the icon */
+        }
+
+        .iot-marker-icon .bx {
+            font-size: 50px; /* Adjust the size as needed */
+            color: dimgray; /* Adjust the color as needed */
+            display: block; /* Ensures the icon takes up space */
+            margin: -35px -50px; /* Adjust margins to center the icon */
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+            max-width: 250px;
+            font-size: 14px;
+        }
+
+            .legend .close-button {
+                position: absolute;
+                top: 5px;
+                right: 5px;
+                cursor: pointer;
+                font-size: 18px;
+                color: #555;
+            }
+
+            .legend label {
+                font-weight: bold;
+                margin-bottom: 5px;
+                display: block;
+            }
+
+            .legend input[type="number"] {
+                width: calc(100% - 20px);
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                margin-bottom: 10px;
+                box-sizing: border-box;
+            }
+
+            .legend button {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 14px;
+                border-radius: 4px;
+                cursor: pointer;
+                width: 100%;
+                margin-top: 5px;
+            }
+
+                .legend button:hover {
+                    background-color: #45a049;
+                }
+
+            .legend .message {
+                margin-top: 10px;
+            }
+
+        .menu-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #333;
+            z-index: 1001;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="legend" id="legend">
+        <span class="close-button" onclick="toggleLegend()">×</span>
+        <label for="radius" style="font-weight: bold; margin-bottom: 8px; display: block;">Enter radius in meters:</label>
+        <input type="number" id="radius" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box;">
+        <button onclick="createCircle()" style="background-color: #4CAF50; color: white; border: none; padding: 10px 15px; text-align: center; text-decoration: none; display: block; width: 100%; font-size: 14px; border-radius: 4px; cursor: pointer;">Set Radius</button>
+        <div id="day" style="margin-top: 10px;"></div>
+        <div id="time"></div>
+        <div id="timeout" style="margin-top: 10px;"></div>
+        <div id="distance" style="margin-top: 10px;"></div>
+        <div class="message" id="message" style="margin-top: 10px;"></div>
+    </div>
+    <div class="menu-icon" onclick="toggleLegend()" style="position: absolute; top: 20px; right: 20px; cursor: pointer; font-size: 24px; color: #333; z-index: 1001;">☰</div>
+
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script>
+        var map, deviceMarker, humanMarker, circle;
+        var timeout = null;
+        var gpsDataHuman = {{ human_journey | safe }};
+        var gpsDataDevice = {{ device_journey | safe }};
+        var begin_time = new Date(gpsDataHuman[0].timestamp);
+        var end_time = new Date(gpsDataHuman[gpsDataHuman.length - 1].timestamp);
+        var date = gpsDataHuman[0].date;
+        var formattedDate = new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        document.getElementById('day').innerText = "Day: " + formattedDate;
+        document.getElementById('time').innerText = "From: " + begin_time.toLocaleTimeString() + " to " + end_time.toLocaleTimeString();
+
+
+
+
+        // Initialize the map
+        function initMap() {
+            map = L.map('map').setView([gpsDataHuman[gpsDataHuman.length - 1].lat, gpsDataHuman[gpsDataHuman.length - 1].lng], 13);
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+
+        // Create circle around IoT device marker
+        function createCircle() {
+            var radius = document.getElementById('radius').value;
+            if (!radius) {
+                alert("Please enter a radius.");
+                return;
+            }
+            var temp_human = 4;
+            var temp_device = 4;
+            var humanLatLng, deviceLatLng, distance;
+
+            for (var i = 0; i < temp_device; i += 4) {
+                if (i + 4 <= gpsDataDevice.length - 1) {
+                    var latlng_device = [
+                        [gpsDataDevice[i].lat, gpsDataDevice[i].lng],
+                        [gpsDataDevice[i + 4].lat, gpsDataDevice[i + 4].lng]
+                    ];
+                }
+                var polyline_device = L.polyline(latlng_device, { color: 'red' }).addTo(map);
+
+                for (var j = 0; j < temp_human; j += 4) {
+                    if (j + 4 <= gpsDataHuman.length - 1) {
+                        var latlng_human = [
+                            [gpsDataHuman[j].lat, gpsDataHuman[j].lng],
+                            [gpsDataHuman[j + 4].lat, gpsDataHuman[j + 4].lng]
+                        ];
+                        var polyline_human = L.polyline(latlng_human, { color: 'green' }).addTo(map);
+
+                    }
+                    humanLatLng = L.latLng(gpsDataHuman[j].lat, gpsDataHuman[j].lng);
+                }
+                // Check if human marker is outside the circle
+                if (temp_device <= gpsDataDevice.length - 1) {
+                    deviceLatLng = L.latLng(gpsDataDevice[temp_device].lat, gpsDataDevice[temp_device].lng);
+                    temp_device += 4;
+                }
+                distance = humanLatLng.distanceTo(deviceLatLng);
+
+                if (distance > radius) {
+                    document.getElementById('message').innerText = "Your device is far away from you";
+                    document.getElementById('message').style.color = "red";
+                    if (timeout === null) {
+                        timeout = new Date(gpsDataHuman[temp_human].timestamp);
+                        document.getElementById('timeout').innerText = "Timeout: " + timeout.toLocaleTimeString();
+                        // Create IoT device marker with default Leaflet red icon
+                        deviceMarker = L.marker([gpsDataDevice[temp_device].lat, gpsDataDevice[temp_device].lng], {
+                            icon: L.icon({
+                                iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+                                iconSize: [25, 41],
+                                iconAnchor: [12, 41],
+                                popupAnchor: [1, -34],
+                            })
+                        }).addTo(map).bindPopup('IOT Device');
+
+                        // Create human marker with default Leaflet purple icon
+                        humanMarker = L.marker([gpsDataHuman[temp_human].lat, gpsDataHuman[temp_human].lng], {
+                            icon: L.icon({
+                                iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+                                iconSize: [25, 41],
+                                iconAnchor: [12, 41],
+                                popupAnchor: [1, -34],
+                            })
+                        }).addTo(map).bindPopup('You are here');
+
+                        var latlngDevice = deviceMarker.getLatLng();
+                        var latlngHuman = humanMarker.getLatLng();
+                        var distance = latlngDevice.distanceTo(latlngHuman);
+                        document.getElementById('distance').innerText = "Distance between two markers: " + distance.toFixed(1) + " meters";
+                        return;
+                    }
+                }
+                if (temp_human <= gpsDataHuman.length - 1) {
+                    temp_human += 4;
+                }
+            }
+            document.getElementById('message').innerText = "Your device is within your range";
+            document.getElementById('message').style.color = "green";
+            deviceMarker = L.marker([gpsDataDevice[gpsDataDevice.length - 1].lat, gpsDataDevice[gpsDataDevice.length - 1].lng], {
+                icon: L.icon({
+                    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                })
+            }).addTo(map).bindPopup('IOT Device');
+
+
+            // Create human marker with default Leaflet purple icon
+            humanMarker = L.marker([gpsDataHuman[gpsDataHuman.length - 1].lat, gpsDataHuman[gpsDataHuman.length - 1].lng], {
+                icon: L.icon({
+                    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                })
+            }).addTo(map).bindPopup('You are here');
+            var latlngDevice = deviceMarker.getLatLng();
+            var latlngHuman = humanMarker.getLatLng();
+            var distance = latlngDevice.distanceTo(latlngHuman);
+            document.getElementById('distance').innerText = "Distance between two markers: " + distance.toFixed(1) + " meters";
+
+        }
+
+        // Toggle the visibility of the legend
+        function toggleLegend() {
+            var legend = document.getElementById('legend');
+            if (legend.style.display === "none" || legend.style.display === "") {
+                legend.style.display = "block";
+            } else {
+                legend.style.display = "none";
+            }
+        }
+
+        // Initialize the map with fixed coordinates
+        initMap();
+    </script>
+</body>
+</html>
